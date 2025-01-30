@@ -1,0 +1,12 @@
+[
+  {
+    "directory": "/Users/jodys/src/cword2vec/",
+    "file": "tests/test_cword2vec.c",
+    "command": "clang -std=c11 -I/opt/homebrew/include -I/opt/homebrew/opt/libarchive/include   -Werror -Iinclude -Isds -g   -c -o test_cword2vec.o tests/test_cword2vec.c"
+  },
+  {
+    "directory": "/Users/jodys/src/cword2vec/",
+    "file": "src/cword2vec.c",
+    "command": "clang -std=c11 -I/opt/homebrew/include -I/opt/homebrew/opt/libarchive/include   -Werror -Iinclude -Isds -g   -c -o cword2vec.o src/cword2vec.c"
+  }
+]
