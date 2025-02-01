@@ -87,15 +87,15 @@ CwVocabResult* cw_vocab_set(CwVocab* vocabulary, char* string, size_t string_len
 			result->status = false;
 		} else {
 			sds word = sdsnewlen(string, string_len);
-			debug("Adding '%s'", word);
+			//debug("Adding '%s'", word);
 			vocabulary->words[vocabulary->max_index] = word;
 			result->index = vocabulary->max_index;
 			vocabulary->max_index++;
 			result->status = true;
 		}
 	} else {
-		sds word = sdsnewlen(string, string_len);
-		debug("Already added %s", word);
+		//sds word = sdsnewlen(string, string_len);
+		//debug("Already added %s", word);
 	}
 
 	return result;
@@ -171,24 +171,77 @@ CwContextResult* cw_context_pairs_make(CwVocab* vocabulary, sds filename, CwCont
 }
 
 /*  
- *   this |   is |    a |  test |  for  | token | making |
+ *   this |   is |    a |  test |  for  | token | making | test1 | test2 | test3|
  * 0  x      o      o
  * 1  o      x      o       o
  * 2  o      o      x       o       o
+ * 3         o      o       x       o       o
+ * 4                o       o       x       o        o
+ * 5                        o       o       x        o       o
+ * 6                                o       o        x       o        o
+ * 7                                        o        o       x        o
  */
+
+int _word(int n) {
+	sds minus_2_word, minus_1_word, current_word, plus_1_word, plus_2_word; 
+
+
+
+	return n;
+
+}
+CwTrainingContextFile* cw_training_context_file_create(sds filename, size_t requested_buffer_size, CwTrainingContextFile* result) {
+	if (!result) {
+		result = calloc(1, sizeof(result));
+		result->status = true;
+		result->filehandle = NULL;
+		result->buffer = NULL;
+		result->filename = NULL;
+	}
+	result->buffer = malloc(requested_buffer_size);
+	check(result->buffer, "couldn't allocate buffer");
+	result->buffer_size = requested_buffer_size;
+
+	result->filehandle = fopen(filename, "wb");
+	result->filename = filename;
+	check(result->filehandle, "couldn't open file %s", filename);
+
+	setvbuf(result->filehandle, result->buffer, _IOFBF, requested_buffer_size);
+	return result;
+
+error:
+	result->filehandle = NULL;
+	result->status = false;
+	return result;
+}
+
+CwTrainingContextFile* cw_training_context_file_finish(CwTrainingContextFile* file) {
+	check(file->filehandle, "Filehandle was NULL");
+	fclose(file->filehandle);
+	file->filehandle = NULL;
+	free(file->buffer);
+	file->buffer = NULL;
+error:
+	return file;
+
+}
 
 int _parse_corpus(char* buffer, size_t size, CwVocab* vocabulary) {
 	// Create CenterContext for 2*context + 1 so we can create
 	// center context pairs for all possible sentences as we scan 
 	// through the text
+
 	size_t last_start = 0;
 	size_t word_count = 0;
 	bool in_word = false;
+	size_t word_count_in_sentence = 0;
+
+	CwVocabIndex tokens_to_process[2];
+	size_t tokens_to_process_count = 0;
 
 	CwVocabResult* result = cw_vocab_result_init();
 	
 	for (size_t i=0; i < size; i++) {
-		//printf("%c", buffer[i]);	
 		switch(buffer[i]) {
 			// sentence boundaries
 			case '.':
@@ -198,60 +251,82 @@ int _parse_corpus(char* buffer, size_t size, CwVocab* vocabulary) {
 					//add the word from last start
 					result = cw_vocab_set(vocabulary, buffer + last_start, i - last_start, result);
 					check(result->status, "failed setting vocab at %lu", i);
+					tokens_to_process[0] = result->index; tokens_to_process_count++;
 					word_count++;
 
 					//add the token as well
 					result = cw_vocab_set(vocabulary, buffer + i, 1, result);
 					check(result->status, "failed setting vocab at %lu", i);
+					tokens_to_process[1] = result->index; tokens_to_process_count++;
 					word_count++;
 
 					in_word = false;
 				}
 				break;
 			case '\n':
-				debug("NON TOKEN end sentence");
+				//debug("NON TOKEN end sentence");
+				word_count_in_sentence = 0;
 				break;
 			case ' ':
 				if (in_word) {
-					debug("' ' in_word false, last_start %zu, i %zu", last_start, i);
+					//debug("' ' in_word false, last_start %zu, i %zu", last_start, i);
 					in_word = false;
 					word_count++;
 					result = cw_vocab_set(vocabulary, buffer + last_start, i - last_start, result);
+					check(result->status, "failed setting vocab at %lu", i);
+					tokens_to_process[0] = result->index; tokens_to_process_count++;
 				}
 				break;
 			default:
 				if (!in_word) {
-					debug("* in_word false, last_start %zu, i %zu", last_start, i);
+					//debug("* in_word false, last_start %zu, i %zu", last_start, i);
 					in_word = true;
 					last_start = i;
 				}
 				break;
 		}
+		for (int i = 0; i < tokens_to_process_count; i++) {
+			debug("need to process: '%llu'", tokens_to_process[i]);			
+			if (word_count_in_sentence == 0) {
+				// We are at beginning of sentence, so allocate need context pairs
+				// allocate CONTEXT * 2 plus 1 to startr
+				CwTrainingContext* context = cw_training_context_init(CONTEXT * 2 + 1);
 
+			}
+		}
+		tokens_to_process_count = 0;
 	}
 error:
 	return word_count;
 
 }
 
-CwTrainingContext* cw_training_context_init(void) {
+CwTrainingContext* cw_training_context_init(size_t count) {
 	CwTrainingContext* result = calloc(1, sizeof(CwTrainingContext));
 	check(result, "unable to alloc result");
 	
-       	result->data = NULL;
+       	result->data = calloc(count, sizeof(CwCenterContext));
+	result->len = count;
 	return result;
 error:
 	exit(-1);
 }
 
-CwTrainingContext* cw_training_context_get_new(CwTrainingContext* context, size_t n) {
+CwTrainingContext* cw_training_context_create_new(CwTrainingContext* context) {
 	check(context, "NULL context passed in");
-	size_t new_len = (context->len + n) * 2;
-	context->data = realloc(context->data, (sizeof(CwCenterContext) * new_len));
-	check(context->data, "unable to alloc"); 
-	context->len = new_len;
-	
-	return context;
+	/* check if we have at least one available */
+	if (context->n < context->len) {
+		context->n++;
+		return context;
+	} else {
+		/* oh, then lets allocate a bunch more space and return one */
+		size_t new_len = (context->len) * 1.414;
+		context->data = realloc(context->data, (sizeof(CwCenterContext) * new_len));
+		check(context->data, "unable to alloc"); 
+		context->len = new_len;
+		context->n++;
+		return context;
+	}
 error:
 	exit(-1);
 

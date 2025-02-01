@@ -78,7 +78,24 @@ typedef struct CwTrainingContext {
 } CwTrainingContext;
 
 
-CwTrainingContext* cw_training_context_init(void); 
-CwTrainingContext* cw_training_context_make(CwTrainingContext* context, size_t n); 
+CwTrainingContext* cw_training_context_init(size_t count); 
+CwTrainingContext* cw_training_context_create_new(CwTrainingContext* context); 
+CwCenterContext* cw_training_context_append(CwTrainingContext* context, size_t n);
+CwCenterContext* cw_training_context_get(CwTrainingContext* context, size_t n);
 
+typedef struct CwTrainingContextFile {
+	bool status;
+	FILE* filehandle;
+	size_t buffer_size;
+	char* buffer;
+	sds filename;
+} CwTrainingContextFile;
+
+size_t cw_training_context_file_write(CwTrainingContextFile* file);
+CwTrainingContextFile* cw_training_context_file_create(
+		sds filename,
+		size_t requested_buffer_size,
+		CwTrainingContextFile* result
+);
+CwTrainingContextFile* cw_training_context_file_finish(CwTrainingContextFile* file); 
 #endif

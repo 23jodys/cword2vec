@@ -123,8 +123,29 @@ static void test__parse_corpus_2(void ** state) {
     sds buffer = sdsnew("This is a test sentence.  There were two   spaces!?!?This is supposed to be a CHALLENGE");
     _parse_corpus(buffer, sdslen(buffer), vocab);
     CwVocabResult* result = cw_vocab_result_init();
-    result = cw_vocab_get(vocab, "this", result);
-    assert_int_equal(3, result->index);
+    result = cw_vocab_get(vocab, "be", result);
+    assert_int_equal(13, result->index);
+}
+
+static void test__cw_training_context_create_new_1(void ** state) {
+	CwTrainingContext* context = cw_training_context_init(7);
+
+	context = cw_training_context_create_new(context);
+	assert_int_equal(1, context->n);
+
+	context = cw_training_context_create_new(context);
+	assert_int_equal(2, context->n);
+}
+
+static void test_cw_training_context_file_basic(void** state) {
+	CwTrainingContextFile* result;
+	result = cw_training_context_file_create("./test.dat", 64 * 1024, NULL);
+	assert_true(result->status);
+	assert_int_equal(result->buffer_size, 1024 * 64);
+	result = cw_training_context_file_finish(result);
+	assert_null(result->filehandle);
+	assert_null(result->buffer);
+
 }
 
 int main(int argc, char* argv[]) {
@@ -139,6 +160,8 @@ int main(int argc, char* argv[]) {
                 cmocka_unit_test(test_cw_context_pairs_make),
                 cmocka_unit_test(test__parse_corpus_1),
                 cmocka_unit_test(test__parse_corpus_2),
+		cmocka_unit_test(test__cw_training_context_create_new_1),
+		cmocka_unit_test(test_cw_training_context_file_basic),
 	};
 	cmocka_run_group_tests(tests, NULL, NULL);
 }
